@@ -109,6 +109,7 @@ int body()
 
 main()
 {
+	prints("Enter main"); 
  printf("\nWelcome to the 460 Multitasking System\n");
    initialize();
    printf("P0 switch to P1\n");

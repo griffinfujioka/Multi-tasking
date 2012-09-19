@@ -1,0 +1,71 @@
+This is a bootable disk of MTX. It is also the root (EXT2) file system. MTX
+can boot and run from any x86-based PC or PC emulators, such as DOSEMU. To
+install DOSEMU to Linux, choose ONE of the following methods:
+
+===========================================================================
+                  A. From THIS floppy disk:
+
+     (Install DOSEMU and boot MTX from THIS floppy disk)
+
+------------- Install DOSEMU --------------------------------------------
+1. mount this disk; cp the file   dosemu.tar.gz   to $HOME (/root) dir
+
+2. Run   zcat dosemu.tar.gz | tar xvf -           (untars to dosemu/)
+
+3. cp  dosemu/xdosemu  /bin                       (or cp to /usr/bin)
+
+4. cp  dosemu/conf/dosemurc  $HOME/.dosemurc;     (DOSEMU conf file) 
+
+-------------- Run dosemu -A -------------------------------------------
+5. Open the first 2 Xterms, whcih should be /dev/pts/0 and /dev/pts/1
+   DOSEMU will use them as serial terminals COM1 and COM2. 
+   Enter       sleep 1000000    to suspend them.
+
+6. Then run       xdosemu -A                      (boot from drive A)
+
+7. login as root (password=12345) on the DOSEMU console.
+         cat /etc/passwd   to see other user accounts.
+         man ANY           to read the man page of MTX
+         ls  /bin          to see all the commands
+
+8. logout/login work as in Unix.
+
+9. Kill the DOSEMU console, then run   xdosemu -A    to reboot.
+
+
+===============================================================================
+              B. Do NOT use (or have) floopy drive:
+
+     (Install DOSEMU and run MTX from a virtual floppy drive)
+
+1. From     www.eecs.wsu.edu/~cs460/mtx/
+   Download the file        dosemu.tgz
+
+------------- Install DOSEMU : run the following commands _-----------
+2. zcat dosemu.tgz | tar xvf -                    (untars to dosemu/)
+
+3. cp  dosemu/xdosemu  /bin                       (or cp to /usr/bin)
+
+   (virtualrc tells DOSEMU to boot from virtual floppy "floppyimage")
+4. cp  dosemu/conf/virtualrc  $HOME/.dosemurc     (DOSEMU conf file) 
+
+5. mkdir   /var/lib/dosemu                        (DOSEMU default dir)
+   ln -s   $(pwd)/dosemu/mtximage /var/lib/dosemu/floppyimage   (link)
+----------------------------------------------------------------------
+7. Then Run    dosemu                             (without -A)    
+   DOSEMU will boot from virtual floppy, floppyimage, which points to
+   dosemu/mtximage. 
+=======================================================================
+
+            C. Install MTX to a Hard Disk Partition  
+
+1. From       www.eecs.wsu.edu/~cs460/mtx/
+   Download   hdmtximage.gz     and    unzip it.
+   
+2. dd if=hdmtximage of=/dev/fd0        (dump to a floppy disk)
+
+3. Mount the FD. 
+   Sedd  InstallHD/README  for how to install MTX to HD.
+=======================================================================
+
+
