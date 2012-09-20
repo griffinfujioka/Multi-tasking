@@ -1,0 +1,15 @@
+
+
+// Enter p into queue
+void enqueue(p,queue)PROC *p, PROC **queue;
+{
+
+}
+
+// Pop the first proc from queue
+void dequeue(queue) PROC **queue; 
+{
+
+}
+
+void printQueue(queue) PROC *queue; 
