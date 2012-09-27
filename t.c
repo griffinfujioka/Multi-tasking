@@ -2,9 +2,9 @@
 #define NPROC     9        
 #define SSIZE  1024                /* kstack int size */
 
-#define DEAD      0                /* proc status     */
-#define READY     1     
-#define FREE 2 
+#define DEAD   	0                /* proc status     */
+#define READY   1     
+#define FREE 	2 
 
 typedef struct proc
 {
@@ -17,13 +17,14 @@ typedef struct proc
 	int priority; 		// priority 
 }PROC;
 
+
 #include "io.c"  /* <===== use YOUR OWN io.c with printf() ****/
 
 
-
-PROC proc[NPROC], *running;	// proc = array of PROC structures
-PROC *readyQueue; 		// Points to ??
-PROC *freeList; 
+// readyQueue and freeList aren't necessary, but helpful 
+PROC proc[NPROC];	// array of PROC structures
+PROC *running, *readyQueue; 		// currently running PROC
+PROC *freeList; 		// Point to first available free PROC in proc array 
 
 int  procSize = sizeof(PROC);
 
@@ -44,47 +45,44 @@ int  procSize = sizeof(PROC);
 int body();  
 int kfork(); 
 
-// Enter p into queue
-void enqueue(p,queue) PROC *p; PROC *queue;
+// Enter p into queue by priority 
+void enqueue(p,queue) PROC *p; PROC **queue;
 {
-	PROC* q; 
-	q = queue; 
-	if(q == NULL)
+	PROC* tp; 
+
+	int i = (*queue)->pid; 
+	printf("\n-- ENQUEUE P%d to P%d\n", p->pid, i); 
+	tp = (*queue); 
+	if((*queue) == NULL) 	// empty queue 
 	{
 		printf("queue is empty, adding P%d\n", p->pid); 
-		q = p; 
+		(*queue) = p; 
 	}
 	else
 	{ 
-		
-		while(q->next != NULL && (q->priority <= p->priority))	
+		//p = &proc[i];  
+		while((*queue)->next)	
 		{
-			q = q->next; 
+			(*queue) = (*queue)->next; 	// Iterate through the queue 
 		}
-		printf("Adding P%d to readyQueue\n", p->pid); 
-		q->next = p;
+		//printf("Adding P%d to readyQueue after %d\n", p->pid, tp->pid); 
+		(*queue)->next = p;
 	}
 
 	p->next = NULL; 
 	printf("\n"); 
-
-	  
-	
 }
-
 // Pop the first proc from queue
-PROC* dequeue(queue) PROC *queue; 
+PROC* dequeue(queue) PROC **queue; 
 {
 	PROC *p; 
-	printf("Entering dequeue\n"); 
-	p = queue; 
-	if(p != NULL)
+	p = (*queue); 
+	if(p)
 	{
 		printf("Queue is not null. Popping first item."); 
-		queue = queue->next; 
+		(*queue) = (*queue)->next; 
 	}
-	else
-		return NULL; 
+
 	printf("Dequeue returning %d\n", p->pid); 
 	return p; 
 }
@@ -121,7 +119,7 @@ void printReadyQueue()
 {
 	PROC *p; 
 	printf("\nreadyQueue : "); 
-	p = readyQueue; 
+	p = &readyQueue[0];
 	while(p != NULL && p->status == READY)
 	{
 		printf("%d -> ", p->pid); 
@@ -129,7 +127,7 @@ void printReadyQueue()
 	}
 }
 
-// Get a free proc from the freeList or 0 if none are available
+// Return a free proc from the freeList or 0 if none are available
 PROC* getproc()
 {
 	PROC *p; 
@@ -137,14 +135,16 @@ PROC* getproc()
 	 
 	p = freeList; 
 
-	while(p != NULL)	// iterate through freeList
+	if(p)	// iterate through freeList
 	{
-		if(p->status == READY)
+		freeList = freeList->next; 
+		/*if(p->status == FREE)
 		{
-			printf("Returning proc with pid = %d\n", p->pid); 
-			return p; 	// return ready process 
+			printf("getproc() found free proc - returning proc with pid = %d\n", p->pid); 
+			return p; 	
 		}
-		p = p->next; 
+		p = p->next; */ 
+		return p; 
 		
 
 	}
@@ -153,38 +153,39 @@ PROC* getproc()
 	return 0; 
 }
 
+// get a free proc from freeList and enter it into the readyQueue.
 int kfork()
 {
-	// Create a child proc and enter it into the readyQueue. 	
-		// get a free proc from freeList 
-	 
+	 	
 	PROC *p; 
-
-	int i,j; 
+	int j; 
 	printf("\nForking child off proc %d\n", running->pid);
 	p = getproc(); 	// get free PROC from freeList
 
-	if(p == 0)
+	if(p == 0) // No free PROCs found
 		return -1; 
 
-	// Initialize p's ppid
+	// Initialize the new proc
+	p->status = READY;
 	p->ppid = running->pid; 
-	// Initialize p's kstack[] as if it called tswitch() before
+	//p->next = &proc[(p->pid)+1]; 
+
+	
+	// Initialize p's kstack[] as if it called tswitch() before. Is this correct?
 	for (j=1; j<10; j++)			// To use pusha, change 10 to 11 here. 
 	{
-		p->kstack[SSIZE - j] = 0;          // all saved registers = 0
-		p->kstack[SSIZE-1]=(int)body;          // called tswitch() from body
-		p->ksp = &(p->kstack[SSIZE-9]);        // ksp -> kstack top
-	}	
+		p->kstack[SSIZE - j] = 0;          // clear all saved registers to equal 0
+		
+	}
 
-	// TODO: Enter p into readyQueue by priority 
-	//readyQueue->next = p;  
-	p->status = READY;  
-	freeList = freeList->next; 	
-	enqueue(p, readyQueue); 
-
-	printf("Returning pid = %d\n", p->pid); 
-	return p->pid; 
+	p->kstack[SSIZE-1]=(int)body;          // push resume address 
+	p->ksp = &(p->kstack[SSIZE-9]);        // save address of top of stack within PROC
+	
+	enqueue(p, (&readyQueue)); 	// insert p into readyQueue by priority 
+	//readyQueue = p;
+	
+	printf("kfork forked P%d off of parent P%d\n", p->pid, p->ppid); 
+	return (p->pid); 
 }
 
 
@@ -193,40 +194,36 @@ int initialize()
   	int i, j;
   	PROC *p;
 
-	// Initialize proc0 as running process
-	running = &proc[0]; 
-	running->pid = 0;
-	running->priority = 0; 
-	running->status = READY;
+	printf("Initializing..."); 
 
-  	for (i=1; i < NPROC; i++)
+	// Initialize proc array with all PROCs free
+	for(i=0; i<NPROC; i++)
 	{
-    		p = &proc[i];
-    		p->next = &proc[i+1];
-    		p->pid = i;
-    		p->status = READY;
-		p->priority = 1; 
+		proc[i].pid = i; 
+		proc[i].status = FREE; 
+		proc[i].next = &proc[i+1]; 
 		
-    
-    		if (i)
-		{     // initialize kstack[ ] of proc[1] to proc[N-1]
-      			for (j=1; j<10; j++)			// To use pusha, change 10 to 11 here. 
-			{
-          			p->kstack[SSIZE - j] = 0;          // all saved registers = 0
-      				p->kstack[SSIZE-1]=(int)body;          // called tswitch() from body
-      				p->ksp = &(p->kstack[SSIZE-9]);        // ksp -> kstack top
-			}
-	// To use pusha, change 9 to 10 on the line above
-    		}
-  	}
-	
-	p->next = NULL; 	// freeList -> proc[1] -> proc[2] -> ... -> proc[N-1] -> NULL
+	}
+	proc[NPROC-1].next = NULL;  
+	freeList = &proc[0]; 		// Initially, all PROCs are free
+	readyQueue = &proc[0]; 
 
-  	running = &proc[0];
-  	proc[NPROC-1].next = NULL; // &proc[1]; This line is redundant with p->next = NULL 
-	freeList = &proc[1]; 
-	readyQueue = running; 
-  	printf("initialization complete\n"); 
+	
+	p = getproc();  	// Create P0 
+	p->status = READY; 
+	p->priority = 0; 	// P0 has a priority of 0 
+	p->pid = 0; 
+	p->next = &proc[1]; 
+	running = p; 
+	
+	p->ppid = running->pid;  // P0 is it's own parent 	
+
+
+  	for(i=1; i<NPROC; i++)
+	{
+		proc[i].priority = 1; 	// All other PROCs have a priority of 1
+	}
+  	printf("complete.\n"); 
 }
 
 char *gasp[NPROC]={
@@ -249,18 +246,34 @@ int ps()
 {
   	PROC *p;
 
-  	printf("running = %d\n", running->pid);
+	int i; 
+  	//printf("running = %d\n", running->pid);
 
-  	/*p = running;
-  	p = p->next;
+  	p = readyQueue;
+	printf("Running P%d in ps()\n", running->pid); 
   	printf("readyProcs = ");
-  	while(p != running && p->status==READY)
+	// #hack
+  	for(i=0; i<NPROC; i++)
 	{
-    		printf("%d -> ", p->pid);
-    		p = p->next;
- 	}*/ 
-	printReadyQueue(); 
-	printFreeList(); 
+		p = &proc[i]; 
+		if(p->status == READY)
+		{
+			 
+			printf("%d -> ", p->pid);
+		}
+    		
+    		//p = p->next;		// I think this is telling me P0 isn't connected to P1... 
+ 	}
+	 
+	p = freeList; 
+	printf("\nfree list = "); 
+	while(p && p->status == FREE)
+	{
+		printf("%d -> ", p->pid); 
+		p = p->next; 
+	}
+	//printReadyQueue(); 
+	//printFreeList(); 
   	printf("\n");
 }
 
@@ -289,10 +302,11 @@ main()
 	
  	printf("\nWelcome to the 460 Multitasking System\n");
    	initialize();
-   	printf("P0 switch to P1\n");
+   	//printf("P0 forks P1\n");
 	kfork(); 	// fork P1 
-
-   	tswitch();	// switches to proc1 
+	printf("P0 switches to P1... calling tswitch()\n"); 
+   	tswitch();	// switches running to P1
+	// Switch, Quit & Fork processes until all of them are dead except P0
 
  	printf("P0 resumes: all dead, happy ending\n");
 }
@@ -301,7 +315,8 @@ main()
 int scheduler()
 {
 	PROC *p;
-    	p = running->next;
+ 	int i; 
+    	/*p = running->next;
 
    	while (p->status != READY && p != running)
       		p = p->next;
@@ -311,21 +326,25 @@ int scheduler()
    	 else
        		running = p; 
 	 
+	 
 
     	printf("\n-----------------------------\n");
     	printf("next running proc = %d\n", running->pid);
-	printf("-----------------------------\n");  
+	printf("-----------------------------\n"); */ 
 
+	// Get to here, then I print out garbage. Caused by enqueue. 
  	
 	if(running->status == READY)
 	{
-		enqueue(running, readyQueue);
-	}
-	//running = dequeue(readyQueue);
+		enqueue(running, (&readyQueue));
+	} 
 
-	printf("Running P%d\n", running->pid); 
+	running = dequeue(&readyQueue);  
+
+	printf("Running P%d in scheduler()\n", running->pid); 
 	 
 }
+
 
 
 
