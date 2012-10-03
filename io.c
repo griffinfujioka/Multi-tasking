@@ -84,4 +84,17 @@ void printf(s) char* s;
 	} 
 }
 
+void gets(s) char* s; 
+{
+	 
+	*s = getc(); 
+	while(*s != '\r')	// while the Enter key is not pressed 
+	{
+		
+		putc(*s); 	// echo the character 
+		s++; 		// move to the next spot in the char array 
+		*s = getc();  	// read another character 
+	}
+	
+}
 
